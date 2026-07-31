@@ -1,7 +1,7 @@
 ---
+import AuthMenu from '@/components/AuthMenu.astro';
 import LocaleSwitcher from '@/components/LocaleSwitcher.astro';
 import Logo from '@/components/Logo.astro';
-import Button from '@/components/Button.astro';
 import type { Global } from '@/types/strapi';
 
 /**
@@ -55,16 +55,7 @@ const localePath = (url: string) => `/${locale}${url}`;
 
     <div class="flex items-center space-x-2">
       <LocaleSwitcher currentLocale={locale} />
-      {
-        right.map((item, index) => (
-          <Button
-            href={localePath(item.URL)}
-            variant={index === right.length - 1 ? 'primary' : 'simple'}
-          >
-            {item.text}
-          </Button>
-        ))
-      }
+      <AuthMenu locale={locale} links={right} />
     </div>
   </div>
 
@@ -150,16 +141,7 @@ const localePath = (url: string) => `/${locale}${url}`;
     </div>
 
     <div class="flex w-full flex-row items-start gap-2.5 px-8 py-4">
-      {
-        right.map((item, index) => (
-          <Button
-            href={localePath(item.URL)}
-            variant={index === right.length - 1 ? 'primary' : 'simple'}
-          >
-            {item.text}
-          </Button>
-        ))
-      }
+      <AuthMenu locale={locale} links={right} />
     </div>
   </div>
 </nav>

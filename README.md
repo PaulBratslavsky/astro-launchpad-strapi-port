@@ -103,8 +103,10 @@ Honest about the gaps: spring easing is gone, replaced by cubic-bezier transitio
 Static by default, on-demand where it has to be:
 
 ```
-prerendered   every content page, both locales — 30 pages
-on-demand     /preview/[...path], /api/preview, /api/exit-preview
+prerendered   every content page, both locales — 32 pages
+on-demand     /preview/[...path]
+              /api/preview, /api/exit-preview
+              /api/auth/{register,login,logout,me}
 adapter       @astrojs/node (standalone)
 ```
 
@@ -116,6 +118,45 @@ middleware never sees the request and there is nothing to intercept and swap.
 `/api/preview` validates the secret, sets an HttpOnly cookie, and redirects
 there; `/preview/...` refuses to render without that cookie, so unpublished
 content is not reachable by guessing the URL.
+
+## Authentication
+
+Sign-up, sign-in and sign-out against Strapi's `users-permissions` plugin,
+without giving up static delivery.
+
+Identity cannot be baked into HTML that is built once and served to everyone,
+so the pages stay prerendered and the navbar asks `/api/auth/me` after load.
+That is the whole trick, and it is why the auth endpoints are the only
+on-demand routes involved.
+
+| Piece                     | Where                                                                |
+| ------------------------- | -------------------------------------------------------------------- |
+| Session cookie            | `src/lib/session.ts` — Strapi's JWT, AES-256-GCM encrypted, HttpOnly |
+| Strapi calls + validation | `src/lib/auth.ts`                                                    |
+| Endpoints                 | `src/pages/api/auth/`                                                |
+| Forms                     | `src/components/AuthForm.astro`, shared by both pages                |
+| Navbar state              | `src/components/AuthMenu.astro`                                      |
+
+Notes on the choices:
+
+- **The JWT is encrypted, not just HttpOnly.** HttpOnly already keeps it away
+  from page scripts; encryption means a cookie recovered from a disk backup, a
+  synced profile or a proxy log is opaque rather than a usable bearer token.
+  GCM authenticates too, so a tampered cookie fails to decrypt.
+- **Every session read verifies against Strapi.** A decryptable cookie only
+  proves this server issued it — not that the account still exists, is
+  unblocked, or that the token has not expired. `/api/auth/me` asks
+  `/api/users/me` and clears the cookie when Strapi says no.
+- **Failed sign-in is deliberately vague.** "Incorrect email or password" for
+  both a wrong password and an unknown account, so the endpoint cannot be used
+  to discover which addresses are registered.
+- **Logout is POST only**, so a stray `<img>` or a prefetch cannot sign someone
+  out.
+
+The tradeoff: a signed-in visitor sees an empty slot in the navbar for one
+request while `/api/auth/me` resolves. Both states are hidden until the answer
+arrives, which is better than flashing "Sign up" at someone who is already
+signed in.
 
 ## Layout
 

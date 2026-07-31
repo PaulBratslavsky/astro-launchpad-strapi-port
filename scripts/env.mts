@@ -165,6 +165,7 @@ export function checkEnv(): CheckResult {
   const required: Array<[string, string, string]> = [
     [clientEnv, 'STRAPI_URL', 'client'],
     [clientEnv, 'PREVIEW_SECRET', 'client'],
+    [clientEnv, 'SESSION_SECRET', 'client'],
     [backendEnv, 'PREVIEW_SECRET', 'strapi'],
     [backendEnv, 'APP_KEYS', 'strapi'],
     [backendEnv, 'ADMIN_JWT_SECRET', 'strapi'],
@@ -190,6 +191,14 @@ export function checkEnv(): CheckResult {
   if (clientPreview && backendPreview && clientPreview !== backendPreview) {
     problems.push(
       'PREVIEW_SECRET differs between client/.env and strapi/.env — Strapi will sign preview URLs the client rejects with 401. Run `yarn setup` to sync them.',
+    );
+  }
+
+  // Too short a key makes scrypt derivation trivially brute-forceable.
+  const sessionSecret = readEnvValue(clientEnv, 'SESSION_SECRET');
+  if (sessionSecret && sessionSecret.length < 32) {
+    problems.push(
+      `client/.env: SESSION_SECRET must be at least 32 characters (currently ${sessionSecret.length})`,
     );
   }
 

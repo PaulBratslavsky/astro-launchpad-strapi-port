@@ -17,6 +17,6 @@ const { locale } = Astro.params as { locale: string };
 const global = await fetchSingle<Global>('global', { locale });
 ---
 
-<BaseLayout locale={locale} global={global} seo={{ metaTitle: 'Sign up' }}>
-  <AuthForm mode="sign-up" locale={locale} logo={global.navbar?.logo?.image} />
+<BaseLayout locale={locale} global={global} seo={{ metaTitle: 'Sign in' }}>
+  <AuthForm mode="sign-in" locale={locale} logo={global.navbar?.logo?.image} />
 </BaseLayout>
