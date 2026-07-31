@@ -1,0 +1,33 @@
+{
+  "name": "astro-launchpad-strapi-port",
+  "version": "1.0.0",
+  "private": true,
+  "description": "An Astro 6 port of Strapi's LaunchPad frontend. No React. Provisions the LaunchPad Strapi backend on setup.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "setup": "node --import tsx ./scripts/setup.mts",
+    "setup:backend": "node --import tsx ./scripts/fetch-backend.mts",
+    "seed": "node --import tsx ./scripts/seed.mts",
+    "dev": "node --import tsx ./scripts/dev.mts",
+    "check:env": "node --import tsx ./scripts/check-env.mts",
+    "client": "yarn --cwd client",
+    "strapi": "yarn --cwd strapi",
+    "build": "yarn --cwd client build",
+    "preview": "yarn --cwd client preview",
+    "check": "yarn --cwd client check",
+    "format": "prettier --write \"**/*.{ts,mts,astro,css,json,md}\"",
+    "check:format": "prettier --check \"**/*.{ts,mts,astro,css,json,md}\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "prettier": "3.9.6",
+    "prettier-plugin-astro": "^0.14.1",
+    "tsx": "^4.19.2",
+    "wait-on": "^8.0.1"
+  },
+  "packageManager": "yarn@4.5.0",
+  "engines": {
+    "node": ">=20.19.0"
+  }
+}

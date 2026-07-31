@@ -1,0 +1,184 @@
+# Astro × Strapi LaunchPad
+
+An [Astro 6](https://astro.build) port of the frontend from [Strapi's LaunchPad demo](https://github.com/strapi/LaunchPad) — **Astro components and TypeScript, no React**.
+
+This repo contains **only the frontend**. `yarn setup` fetches the LaunchPad Strapi backend for you, so there is no CMS to maintain here and no backend source in this repository.
+
+## Requirements
+
+- **Node.js** 20.19 or newer
+- **Yarn** — `corepack enable`, or `npm i -g yarn`
+- **git** — used to fetch the backend
+
+No database to install: the backend runs on SQLite by default.
+
+## Setup
+
+Four commands from a clean clone to a running site.
+
+### 1. Clone and install the orchestration scripts
+
+```sh
+git clone <this-repo>
+cd astro-launchpad-strapi-port
+yarn install
+```
+
+### 2. Provision everything
+
+```sh
+yarn setup
+```
+
+In order, this:
+
+1. **Fetches the backend** into `./strapi` — a sparse checkout of only LaunchPad's `strapi/` directory at the commit pinned in `launchpad.json`, with the clone's `.git` removed.
+2. **Installs dependencies** in `client/` and `strapi/`.
+3. **Creates `client/.env` and `strapi/.env`**, generating a secret for every `tobemodified` placeholder, writing one shared `PREVIEW_SECRET` into both, and pointing Strapi's `CLIENT_URL` at wherever Astro actually runs.
+4. **Verifies the result**, naming the file and key if anything is inconsistent.
+
+Existing `.env` files are never overwritten, so `yarn setup` is safe to re-run.
+
+### 3. Load the demo content
+
+```sh
+yarn seed
+```
+
+**Destructive** — Strapi's import wipes existing data first. See [Seeding data](#seeding-data).
+
+### 4. Start it
+
+```sh
+yarn dev
+```
+
+Strapi on `:1337`, Astro on `:4321` once Strapi answers. Stopping one stops the other.
+
+### 5. Create your admin user
+
+The seed has content but no admin account. Open **http://localhost:1337/admin** and register — it's local to your SQLite file. Then open **http://localhost:4321**.
+
+## Seeding data
+
+`yarn seed` imports LaunchPad's demo content from the archive inside the fetched backend (`strapi/data/export_*.tar.gz`).
+
+|                                         | English | French |
+| --------------------------------------- | ------- | ------ |
+| Pages (homepage, pricing, contact, faq) | 4       | 4      |
+| Articles                                | 2       | 3      |
+| Products                                | 5       | 5      |
+
+Plus the `global` single type, the dynamic-zone content those pages reference, and 72 media assets. The import reports 1166 rows and 23.4MB, counting entities, assets, relations and configuration.
+
+| You want to                  | Do this                                                                 |
+| ---------------------------- | ----------------------------------------------------------------------- |
+| Reset to the pristine demo   | `yarn seed` again                                                       |
+| Start from an empty database | `rm strapi/.tmp/data.db` and restart                                    |
+| Keep your own content        | don't re-run `yarn seed`; export with `cd strapi && yarn strapi export` |
+
+Your admin account lives in the same database, so re-seeding signs you out. Seed with `yarn dev` stopped — the import rewrites the SQLite file directly.
+
+## No React, and what that cost
+
+LaunchPad's UI is React-first: 18 components use framer-motion, 7 use three.js through `@react-three/fiber`, and rich text renders through `@strapi/blocks-react-renderer`. None of that can come across. What replaced it:
+
+| LaunchPad (React)               | Here                                                                 |
+| ------------------------------- | -------------------------------------------------------------------- |
+| `@strapi/blocks-react-renderer` | `BlocksRenderer.astro` — a recursive Astro component, zero client JS |
+| framer-motion `whileInView`     | `[data-reveal]` + one IntersectionObserver for the whole page        |
+| framer-motion hover/scroll      | CSS transitions, and a `data-scrolled` attribute on the navbar       |
+| `react-fast-marquee`            | CSS keyframes over a duplicated, `aria-hidden` track                 |
+| Radix / Headless UI accordion   | native `<details>` / `<summary>`                                     |
+| `@react-three/fiber` globe      | three.js directly, lazy-loaded on scroll                             |
+| `@tsparticles/react`            | `tsParticles.load()`, deferred to idle                               |
+| Aceternity canvas shaders       | CSS gradients and inline SVG                                         |
+
+**What ships to the browser on first load: two 4KB module scripts.** three.js (720KB) is a separate chunk fetched only when the globe scrolls into view, and skipped entirely for visitors who never reach it. tsparticles waits for `requestIdleCallback` and is skipped under `prefers-reduced-motion`.
+
+Honest about the gaps: spring easing is gone, replaced by cubic-bezier transitions. The canvas-reveal shader on the feature cards is a CSS gradient. Per-element motion staggering is a `--reveal-delay` custom property rather than a physics simulation. Side by side with LaunchPad the motion reads as calmer.
+
+## Rendering
+
+Static by default, on-demand where it has to be:
+
+```
+prerendered   every content page, both locales — 29 pages
+on-demand     /api/preview, /api/exit-preview
+adapter       @astrojs/node (standalone)
+```
+
+Draft preview is the reason for the adapter: "am I previewing?" is a per-request question and cannot be answered at build time.
+
+## Layout
+
+```
+launchpad.json     which LaunchPad backend to provision (pinned commit)
+scripts/           setup, fetch, seed, dev, env checks
+client/            the Astro app
+  src/components/  UI, including blocks/ for the 12 dynamic-zone sections
+  src/layouts/     BaseLayout — head, navbar, footer, preview plumbing
+  src/lib/         Strapi access, media URLs, draft mode, i18n
+  src/pages/       routes; api/ holds the on-demand endpoints
+strapi/            fetched by `yarn setup` — gitignored, never committed
+```
+
+## Scripts
+
+| Command                        | What it does                                                                   |
+| ------------------------------ | ------------------------------------------------------------------------------ |
+| `yarn setup`                   | Fetch the backend, install both projects, reconcile `.env` files. Re-runnable. |
+| `yarn setup:backend [--force]` | Just the backend fetch.                                                        |
+| `yarn seed`                    | Import the demo content. **Destructive.**                                      |
+| `yarn dev`                     | Strapi then Astro. Ports come from the `.env` files.                           |
+| `yarn check:env`               | Verify both `.env` files agree. Runs automatically before `yarn dev`.          |
+| `yarn build`                   | Production build into `client/dist`.                                           |
+| `yarn check`                   | `astro check` — types across `.astro` and `.ts`.                               |
+
+## Environment
+
+| Variable         | Where  | Why it matters                                                                                                                                        |
+| ---------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PREVIEW_SECRET` | both   | Strapi signs preview URLs with it; the client validates them. Drift means a bare `401`. Setup writes one value to both files and re-checks every run. |
+| `STRAPI_URL`     | client | Where the client reaches Strapi, at build time and per request.                                                                                       |
+| `CLIENT_URL`     | strapi | Where Strapi points the preview iframe. Derived from the client's `PORT`.                                                                             |
+| `PORT`           | client | Astro's dev/preview port.                                                                                                                             |
+
+### Running alongside another LaunchPad instance
+
+Ports come from the `.env` files, so nothing in the scripts needs editing:
+
+```sh
+# strapi/.env
+PORT=1340
+CLIENT_URL=http://localhost:4340
+
+# client/.env
+PORT=4340
+WEBSITE_URL=http://localhost:4340
+STRAPI_URL=http://localhost:1340
+```
+
+## Live preview
+
+Strapi's admin builds a preview URL from `config/admin.ts` and points its iframe at it. `/api/preview` validates the shared secret, sets an HttpOnly cookie, and redirects. `PreviewBridge.astro` then announces readiness so the admin sends its click-to-edit overlay script, and reloads the page on save.
+
+Redirect targets are restricted to same-origin paths — the preview URL is handed out by the admin, so an open redirect there would be a real one.
+
+**Known limitation, inherited from Strapi:** rich text is not click-to-editable in preview. Strapi does not embed source-map markers into `blocks` fields — only strings — so there is nothing in the rendered output for the overlay to attach to. Titles and media work; article bodies do not. This affects every LaunchPad frontend, not just this one.
+
+## Troubleshooting
+
+**The Strapi admin spins instead of showing the login form.** A stale admin JWT from a different Strapi on the same port. Clear site data for `localhost:1337`, or use an incognito window.
+
+**Preview says `Invalid token`.** `PREVIEW_SECRET` differs between the two `.env` files. Run `yarn check:env`, then `yarn setup` to sync, then restart — `.env` changes are not hot-reloaded.
+
+**`yarn dev` won't start.** It runs `yarn check:env` first and refuses on an inconsistent environment. The output names each problem.
+
+**Images 404.** Check `STRAPI_URL` in `client/.env` points at your running Strapi, including the port.
+
+**Build warns about route `/`.** Expected. Astro's `redirectToDefaultLocale` requires `src/pages/index.astro` to exist so it can generate the `/` → `/en` redirect, then warns that its redirect supersedes that page. Removing the file breaks `astro check`.
+
+## License
+
+MIT

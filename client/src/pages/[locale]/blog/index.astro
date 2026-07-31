@@ -1,0 +1,58 @@
+---
+import ArticleCard from '@/components/ArticleCard.astro';
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Container from '@/components/Container.astro';
+import Heading from '@/components/Heading.astro';
+import Subheading from '@/components/Subheading.astro';
+import AmbientColor from '@/components/AmbientColor.astro';
+import { LOCALES } from '@/lib/i18n';
+import { fetchCollection, fetchSingle } from '@/lib/strapi';
+import type { Article, Global } from '@/types/strapi';
+
+export function getStaticPaths() {
+  return LOCALES.map((locale) => ({ params: { locale } }));
+}
+
+const { locale } = Astro.params as { locale: string };
+
+const [articles, global, blogPage] = await Promise.all([
+  fetchCollection<Article>('articles', { locale, sort: 'publishedAt:desc' }),
+  fetchSingle<Global>('global', { locale }),
+  fetchSingle<{ heading?: string; sub_heading?: string; seo?: any }>(
+    'blog-page',
+    { locale },
+  ).catch(() => null),
+]);
+---
+
+<BaseLayout locale={locale} global={global} seo={blogPage?.seo}>
+  <div class="relative overflow-hidden pt-40 pb-20">
+    <AmbientColor />
+    <Container class="relative z-10">
+      <Heading data-reveal>{blogPage?.heading ?? 'Blog'}</Heading>
+      {
+        blogPage?.sub_heading && (
+          <Subheading class="mt-4" data-reveal>
+            {blogPage.sub_heading}
+          </Subheading>
+        )
+      }
+
+      {
+        articles.length ? (
+          <div class="mt-16 grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+            {articles.map((article, index) => (
+              <ArticleCard
+                article={article}
+                locale={locale}
+                delay={index * 80}
+              />
+            ))}
+          </div>
+        ) : (
+          <p class="text-muted mt-16 text-center">No articles yet.</p>
+        )
+      }
+    </Container>
+  </div>
+</BaseLayout>

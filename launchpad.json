@@ -1,0 +1,8 @@
+{
+  "$comment": "Which LaunchPad backend `yarn setup` provisions into ./strapi. Bump `commit` to take upstream changes, then re-run `yarn setup:backend --force`.",
+  "repository": "https://github.com/strapi/LaunchPad.git",
+  "directory": "strapi",
+  "commit": "7f495c5ce94a546ee6a5cde8091fcb93896675c2",
+  "commitDate": "2026-07-06",
+  "seedArchive": "data/export_20250116105447.tar.gz"
+}

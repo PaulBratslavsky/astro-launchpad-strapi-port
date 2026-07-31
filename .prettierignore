@@ -1,0 +1,5 @@
+dist/
+.astro/
+node_modules/
+strapi/
+yarn.lock
