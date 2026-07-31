@@ -103,12 +103,19 @@ Honest about the gaps: spring easing is gone, replaced by cubic-bezier transitio
 Static by default, on-demand where it has to be:
 
 ```
-prerendered   every content page, both locales — 29 pages
-on-demand     /api/preview, /api/exit-preview
+prerendered   every content page, both locales — 30 pages
+on-demand     /preview/[...path], /api/preview, /api/exit-preview
 adapter       @astrojs/node (standalone)
 ```
 
 Draft preview is the reason for the adapter: "am I previewing?" is a per-request question and cannot be answered at build time.
+
+Draft content renders under `/preview/...` rather than at the public URL. With
+`output: 'static'` the adapter serves a prerendered page straight off disk, so
+middleware never sees the request and there is nothing to intercept and swap.
+`/api/preview` validates the secret, sets an HttpOnly cookie, and redirects
+there; `/preview/...` refuses to render without that cookie, so unpublished
+content is not reachable by guessing the URL.
 
 ## Layout
 
