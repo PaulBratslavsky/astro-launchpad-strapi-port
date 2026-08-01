@@ -119,6 +119,49 @@ middleware never sees the request and there is nothing to intercept and swap.
 there; `/preview/...` refuses to render without that cookie, so unpublished
 content is not reachable by guessing the URL.
 
+## Two ways to read Strapi
+
+Both are here on purpose, because each is right for a different job.
+
+**Content Layer** — `src/content.config.ts`, using
+[`strapi-community-astro-loader`](https://www.npmjs.com/package/strapi-community-astro-loader).
+The loader pulls content once per build into Astro's content store, Zod
+validates it, and pages read it with `getCollection()`. You get typed entries, a
+build-time cache, one fetch for the whole build instead of one per page, and a
+hard build failure if Strapi's shape drifts from what the templates expect. The
+blog uses this.
+
+```astro
+const entries = await getCollection('articles-en');
+```
+
+**Direct fetch** — `src/lib/strapi.ts`. Plain functions over the REST API, with
+a `draft` flag. Pages, products and the preview route use this.
+
+|            | Content Layer                   | Direct fetch                    |
+| ---------- | ------------------------------- | ------------------------------- |
+| When       | build time                      | build **or** request time       |
+| Validation | Zod, fails the build            | TypeScript types only           |
+| Draft mode | no — the build already happened | yes                             |
+| Used by    | blog                            | pages, products, `/preview/...` |
+
+The dividing line is draft preview. "What does this look like right now" cannot
+be answered by content fetched at build time, so anything that has to serve
+drafts fetches directly.
+
+### Two things worth knowing about the loader
+
+**Populate is absent from the config.** Most Strapi loader examples carry a long
+`populate` block. LaunchPad's backend registers a populate middleware on every
+API route, so a bare request already comes back fully populated.
+
+**One collection per locale, not one collection with `locale: '*'`.** Strapi 5
+gives every localisation of a document the _same_ `documentId`, and the loader
+keys its store on that. Fetching all locales into a single collection silently
+drops translations — five API entries collapsed to three here, and two pages
+disappeared from the build with no error at all. Separate collections keep the
+keys in separate namespaces.
+
 ## Authentication
 
 Sign-up, sign-in and sign-out against Strapi's `users-permissions` plugin,

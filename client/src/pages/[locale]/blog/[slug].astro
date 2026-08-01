@@ -1,22 +1,25 @@
 ---
+import { getCollection } from 'astro:content';
 import ArticleView from '@/components/views/ArticleView.astro';
 import BaseLayout from '@/layouts/BaseLayout.astro';
-import { LOCALES } from '@/lib/i18n';
-import { fetchCollection, fetchSingle } from '@/lib/strapi';
+import { fetchSingle } from '@/lib/strapi';
 import type { Article, Global } from '@/types/strapi';
 
+/*
+ * Paths come from the Content Layer collection. One loader run covers every
+ * locale and every article, where the direct-fetch version issued a request
+ * per locale inside getStaticPaths.
+ */
 export async function getStaticPaths() {
-  const paths = [];
-  for (const locale of LOCALES) {
-    const articles = await fetchCollection<Article>('articles', { locale });
-    for (const article of articles) {
-      paths.push({
-        params: { locale, slug: article.slug },
-        props: { article },
-      });
-    }
-  }
-  return paths;
+  const [en, fr] = await Promise.all([
+    getCollection('articles-en'),
+    getCollection('articles-fr'),
+  ]);
+
+  return [...en, ...fr].map((entry) => ({
+    params: { locale: entry.data.locale, slug: entry.data.slug },
+    props: { article: entry.data as unknown as Article },
+  }));
 }
 
 const { locale } = Astro.params as { locale: string };

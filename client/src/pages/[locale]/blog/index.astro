@@ -1,22 +1,41 @@
 ---
+import { getCollection } from 'astro:content';
+import AmbientColor from '@/components/AmbientColor.astro';
 import ArticleCard from '@/components/ArticleCard.astro';
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import Container from '@/components/Container.astro';
 import Heading from '@/components/Heading.astro';
 import Subheading from '@/components/Subheading.astro';
-import AmbientColor from '@/components/AmbientColor.astro';
 import { LOCALES } from '@/lib/i18n';
-import { fetchCollection, fetchSingle } from '@/lib/strapi';
+import { fetchSingle } from '@/lib/strapi';
 import type { Article, Global } from '@/types/strapi';
 
+/*
+ * Reads from the Content Layer rather than fetching directly — see
+ * `src/content.config.ts`. `getCollection` is already typed and validated
+ * against the Zod schema, and the loader ran once for the whole build instead
+ * of once per page.
+ */
 export function getStaticPaths() {
   return LOCALES.map((locale) => ({ params: { locale } }));
 }
 
 const { locale } = Astro.params as { locale: string };
 
-const [articles, global, blogPage] = await Promise.all([
-  fetchCollection<Article>('articles', { locale, sort: 'publishedAt:desc' }),
+// One collection per locale — see the note in src/content.config.ts.
+const entries = await getCollection(
+  locale === 'fr' ? 'articles-fr' : 'articles-en',
+);
+
+const articles = entries
+  .map((entry) => entry.data as unknown as Article)
+  .sort(
+    (a, b) =>
+      new Date(b.publishedAt ?? 0).getTime() -
+      new Date(a.publishedAt ?? 0).getTime(),
+  );
+
+const [global, blogPage] = await Promise.all([
   fetchSingle<Global>('global', { locale }),
   fetchSingle<{ heading?: string; sub_heading?: string; seo?: any }>(
     'blog-page',

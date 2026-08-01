@@ -1265,7 +1265,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@strapi/client@npm:^1.6.2":
+"@strapi/client@npm:^1.2.0, @strapi/client@npm:^1.6.2":
   version: 1.6.2
   resolution: "@strapi/client@npm:1.6.2"
   dependencies:
@@ -1991,6 +1991,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@vercel/stega@npm:^1.1.0":
+  version: 1.1.0
+  resolution: "@vercel/stega@npm:1.1.0"
+  checksum: 10c0/64df5aff0e60c609be4a56dd8411085ad15d85bbad98627bfce2902ae3fbade5d5d7ecdcc1308b45896cf6f62303780f90387a5f70b7e08963726174efd0c149
+  languageName: node
+  linkType: hard
+
 "@volar/kit@npm:~2.4.28":
   version: 2.4.28
   resolution: "@volar/kit@npm:2.4.28"
@@ -2364,7 +2371,9 @@ __metadata:
     "@tsparticles/slim": "npm:^4.3.2"
     "@types/node": "npm:^26.1.2"
     "@types/three": "npm:^0.185.3"
+    "@vercel/stega": "npm:^1.1.0"
     astro: "npm:^6"
+    strapi-community-astro-loader: "npm:^4.0.0"
     tailwindcss: "npm:^4.3.3"
     three: "npm:^0.185.1"
     typescript: "npm:^5.9.3"
@@ -5063,6 +5072,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"strapi-community-astro-loader@npm:^4.0.0":
+  version: 4.0.0
+  resolution: "strapi-community-astro-loader@npm:4.0.0"
+  dependencies:
+    "@strapi/client": "npm:^1.2.0"
+    tiny-invariant: "npm:^1.3.3"
+  peerDependencies:
+    astro: ^6.0.0
+  checksum: 10c0/46c69165a328d53a91996638bac8a73a3a8e7e3dc73cf55ba9740c982612b0d9654ab901749171b349b15146676bcc922c83b4115139f7a9aded1fc4ab0f3fd0
+  languageName: node
+  linkType: hard
+
 "string-width@npm:^7.0.0, string-width@npm:^7.2.0":
   version: 7.2.0
   resolution: "string-width@npm:7.2.0"
@@ -5158,6 +5179,13 @@ __metadata:
   version: 1.0.3
   resolution: "tiny-inflate@npm:1.0.3"
   checksum: 10c0/fab687537254f6ec44c9a2e880048fe70da3542aba28f73cda3e74c95cabf342a339372f2a6c032e322324f01accc03ca26c04ba2bad9b3eb8cf3ee99bba7f9b
+  languageName: node
+  linkType: hard
+
+"tiny-invariant@npm:^1.3.3":
+  version: 1.3.3
+  resolution: "tiny-invariant@npm:1.3.3"
+  checksum: 10c0/65af4a07324b591a059b35269cd696aba21bef2107f29b9f5894d83cc143159a204b299553435b03874ebb5b94d019afa8b8eff241c8a4cfee95872c2e1c1c4a
   languageName: node
   linkType: hard
 

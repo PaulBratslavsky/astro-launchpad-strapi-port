@@ -1,5 +1,6 @@
 ---
 import { isAudio, isVideo, strapiMedia } from '@/lib/media';
+import { getStrapiSource } from '@/lib/source-map';
 import type { StrapiMedia as StrapiMediaType } from '@/types/strapi';
 
 /**
@@ -24,7 +25,10 @@ interface Props {
   width?: number | string;
   height?: number | string;
   loading?: 'lazy' | 'eager';
-  /** Visual-editing mapping, when rendering in draft mode. */
+  /**
+   * Visual-editing mapping. Decoded from the media URL automatically — only
+   * pass this to override it.
+   */
   dataStrapiSource?: string;
   /** Passed through so callers can target the element from a script. */
   id?: string;
@@ -43,6 +47,13 @@ const {
 
 const src = strapiMedia(media?.url);
 const label = alt ?? media?.alternativeText ?? '';
+
+/*
+ * Decode from the RAW url, before strapiMedia() strips the markers out of it.
+ * Undefined outside draft mode, so the attribute is simply absent in
+ * production rather than empty.
+ */
+const strapiSource = dataStrapiSource ?? getStrapiSource(media?.url);
 ---
 
 {
@@ -53,7 +64,7 @@ const label = alt ?? media?.alternativeText ?? '';
       class={className}
       controls
       preload="metadata"
-      data-strapi-source={dataStrapiSource}
+      data-strapi-source={strapiSource}
     />
   )
 }
@@ -65,7 +76,7 @@ const label = alt ?? media?.alternativeText ?? '';
       src={src}
       class={className}
       controls
-      data-strapi-source={dataStrapiSource}
+      data-strapi-source={strapiSource}
     />
   )
 }
@@ -81,7 +92,7 @@ const label = alt ?? media?.alternativeText ?? '';
       height={height}
       loading={loading}
       decoding="async"
-      data-strapi-source={dataStrapiSource}
+      data-strapi-source={strapiSource}
     />
   )
 }
