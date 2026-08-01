@@ -123,23 +123,9 @@ content is not reachable by guessing the URL.
 
 Both are here on purpose, because each is right for a different job.
 
-**Content Layer** — `src/content.config.ts`, using
-[`strapi-community-astro-loader`](https://www.npmjs.com/package/strapi-community-astro-loader).
-The loader pulls content once per build into Astro's content store, Zod
-validates it, and pages read it with `getCollection()`. You get typed entries, a
-build-time cache, one fetch for the whole build instead of one per page, and a
-hard build failure if Strapi's shape drifts from what the templates expect. The
-blog uses this.
-
-```astro
-const entries = await getCollection('articles-en');
-```
-
-**Direct fetch** — `src/lib/strapi.ts`. Plain functions over the REST API, with
-a `draft` flag. Pages, products and the preview route use this.
-
 |            | Content Layer                   | Direct fetch                    |
 | ---------- | ------------------------------- | ------------------------------- |
+| Where      | `src/content.config.ts`         | `src/lib/strapi.ts`             |
 | When       | build time                      | build **or** request time       |
 | Validation | Zod, fails the build            | TypeScript types only           |
 | Draft mode | no — the build already happened | yes                             |
@@ -147,20 +133,150 @@ a `draft` flag. Pages, products and the preview route use this.
 
 The dividing line is draft preview. "What does this look like right now" cannot
 be answered by content fetched at build time, so anything that has to serve
-drafts fetches directly.
+drafts fetches directly. Everything else is better off in the Content Layer.
 
-### Two things worth knowing about the loader
+### The Content Layer, end to end
 
-**Populate is absent from the config.** Most Strapi loader examples carry a long
-`populate` block. LaunchPad's backend registers a populate middleware on every
-API route, so a bare request already comes back fully populated.
+Astro's Content Layer pulls a CMS into a local store once per build. Pages then
+read typed, validated entries with `getCollection()` instead of writing fetches.
+The blog is wired up this way, using
+[`strapi-community-astro-loader`](https://www.npmjs.com/package/strapi-community-astro-loader).
+
+**1. Install the loader**
+
+```sh
+yarn --cwd client add strapi-community-astro-loader
+```
+
+**2. Define collections** — `client/src/content.config.ts`
+
+```ts
+import { defineCollection } from 'astro:content';
+import { z } from 'astro/zod';
+import { strapiLoader } from 'strapi-community-astro-loader';
+
+const clientConfig = {
+  baseURL: `${import.meta.env.STRAPI_URL ?? 'http://localhost:1337'}/api`,
+};
+
+const imageSchema = z.object({
+  url: z.string(),
+  alternativeText: z.string().nullable().optional(),
+  width: z.number().nullable().optional(),
+  height: z.number().nullable().optional(),
+  mime: z.string().nullable().optional(),
+});
+
+const articleSchema = z.object({
+  documentId: z.string(),
+  title: z.string(),
+  slug: z.string(),
+  locale: z.string(),
+  description: z.string().nullable().optional(),
+  publishedAt: z.string().nullable().optional(),
+  // Media and relations must be BOTH nullable and optional — Strapi omits an
+  // unset relation entirely and returns null for cleared media.
+  image: imageSchema.nullable().optional(),
+  categories: z
+    .array(z.object({ name: z.string() }))
+    .nullable()
+    .optional(),
+  // Blocks and dynamic zones stay open; the renderers narrow them at use.
+  content: z.array(z.any()).nullable().optional(),
+  dynamic_zone: z.array(z.any()).nullable().optional(),
+});
+
+const articleCollection = (locale: string) =>
+  defineCollection({
+    loader: strapiLoader({
+      contentType: 'article',
+      clientConfig,
+      params: { locale },
+    }),
+    schema: articleSchema,
+  });
+
+export const collections = {
+  'articles-en': articleCollection('en'),
+  'articles-fr': articleCollection('fr'),
+};
+```
+
+**3. Read it in a listing page** — `client/src/pages/[locale]/blog/index.astro`
+
+```astro
+---
+import { getCollection } from 'astro:content';
+
+const { locale } = Astro.params;
+
+const entries = await getCollection(
+  locale === 'fr' ? 'articles-fr' : 'articles-en',
+);
+
+const articles = entries
+  .map((entry) => entry.data)
+  .sort(
+    (a, b) =>
+      new Date(b.publishedAt ?? 0).getTime() -
+      new Date(a.publishedAt ?? 0).getTime(),
+  );
+---
+
+{articles.map((article) => <ArticleCard article={article} locale={locale} />)}
+```
+
+**4. Generate detail routes from the same collections** —
+`client/src/pages/[locale]/blog/[slug].astro`
+
+```astro
+---
+import { getCollection } from 'astro:content';
+
+export async function getStaticPaths() {
+  const [en, fr] = await Promise.all([
+    getCollection('articles-en'),
+    getCollection('articles-fr'),
+  ]);
+
+  return [...en, ...fr].map((entry) => ({
+    params: { locale: entry.data.locale, slug: entry.data.slug },
+    props: { article: entry.data },
+  }));
+}
+
+const { article } = Astro.props;
+---
+```
+
+One loader run now covers every locale and every article. The direct-fetch
+version issued a request per locale inside `getStaticPaths`, on every page.
+
+### Three things that cost me pages
+
+**`locale=all` returns nothing.** Strapi 5 wants `locale=*`. `all` is not an
+error — it quietly returns an empty array.
 
 **One collection per locale, not one collection with `locale: '*'`.** Strapi 5
 gives every localisation of a document the _same_ `documentId`, and the loader
 keys its store on that. Fetching all locales into a single collection silently
-drops translations — five API entries collapsed to three here, and two pages
-disappeared from the build with no error at all. Separate collections keep the
-keys in separate namespaces.
+drops translations: five API entries collapsed to three, and two pages vanished
+from the build with no warning. Separate collections keep the keys in separate
+namespaces.
+
+**Populate is absent here, and that is unusual.** Most Strapi loader examples
+carry a long `populate` block. LaunchPad's backend registers a populate
+middleware on every API route, so a bare request already comes back fully
+populated. If you point this loader at a stock Strapi project, you will need
+`params.populate`.
+
+### A dev-only wrinkle
+
+The loader syncs asynchronously when `astro dev` starts. A request that lands
+before `[content] Synced content` appears in the log sees an empty collection
+and renders the "No articles yet" empty state. Reload and it is there. In
+production the store is baked at build time, so this cannot happen — the build
+either has the content or fails.
 
 ## Authentication
 
